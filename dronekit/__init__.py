@@ -55,6 +55,7 @@ from pymavlink.dialects.v10 import ardupilotmega
 
 from dronekit.util import ErrprinterHandler
 
+LOG_ENDLINE = '\r'
 
 class APIException(Exception):
     """
@@ -242,7 +243,7 @@ class Wind(object):
         self.wind_direction = wind_direction
         self.wind_speed = wind_speed
         self.wind_speed_z = wind_speed_z
-    
+
     def __str__(self):
         return "Wind: wind direction: {}, wind speed: {}, wind speed z: {}".format(self.wind_direction, self.wind_speed, self.wind_speed_z)
 
@@ -2312,8 +2313,12 @@ class Vehicle(HasObservers):
 
         # Poll for first heartbeat.
         # If heartbeat times out, this will interrupt.
+        retries = 0
+        print()
         while self._handler._alive:
             time.sleep(.1)
+            retries = retries + 1
+            print(f"Awaiting heartbeat...{retries * '.'}", end=LOG_ENDLINE)
             if self._heartbeat_lastreceived != start:
                 break
         if not self._handler._alive:
@@ -2323,7 +2328,11 @@ class Vehicle(HasObservers):
         self._handler.target_system = self._heartbeat_system
 
         # Wait until board has booted.
+        retries = 0
+        print()
         while True:
+            retries = retries + 1
+            print(f"Waiting for board flight mode initialization...{retries * '.'}", end=LOG_ENDLINE)
             if self._flightmode not in [None, 'INITIALISING', 'MAV']:
                 break
             time.sleep(0.1)
@@ -2336,13 +2345,18 @@ class Vehicle(HasObservers):
         self.add_message_listener('HEARTBEAT', self.send_capabilities_request)
 
         # Ensure initial parameter download has started.
+        retries = 0
+        print()
         while True:
+            retries = retries + 1
+            print(f"Waiting for parameter download...{int(retries / 20) * '.'}", end=LOG_ENDLINE)
             # This fn actually rate limits itself to every 2s.
             # Just retry with persistence to get our first param stream.
             self._master.param_fetch_all()
             time.sleep(0.1)
             if self._params_count > -1:
                 break
+        print("Vehicle initialized.")
 
     def send_capabilties_request(self, vehicle, name, m):
         '''An alias for send_capabilities_request.
@@ -2411,8 +2425,13 @@ class Vehicle(HasObservers):
         still_waiting_callback = kwargs.get('still_waiting_callback')
         still_waiting_message_interval = kwargs.get('still_waiting_interval', 1)
 
+        retries = 0
+        print()
         while not await_attributes.issubset(self._ready_attrs):
             time.sleep(0.1)
+            retries = retries + 1
+            waiting_on = await_attributes.difference(self._ready_attrs)
+            print(f"Awaiting ({retries}) {len(waiting_on)}/{len(await_attributes)} more attributes: ({str(waiting_on)})", end=LOG_ENDLINE)
             now = monotonic.monotonic()
             if now - start > timeout:
                 if raise_exception:
@@ -2425,7 +2444,7 @@ class Vehicle(HasObservers):
                 still_waiting_last_message_sent = now
                 if still_waiting_callback:
                     still_waiting_callback(await_attributes - self._ready_attrs)
-
+        print()
         return True
 
     def reboot(self):
@@ -3199,18 +3218,26 @@ def connect(ip,
     from dronekit.mavlink import MAVConnection
 
     if not vehicle_class:
+        print('Using default vehicle class.')
         vehicle_class = Vehicle
 
+    print('Creating MAVConnection...')
     handler = MAVConnection(ip, baud=baud, source_system=source_system, source_component=source_component, use_native=use_native)
+    print(f'MAVConnection created to {ip}')
+    print(f'Creating vehicle instance...')
     vehicle = vehicle_class(handler)
+    print(f'Vehicle created')
 
     if status_printer:
+        print('Attaching status printer')
         vehicle._autopilot_logger.addHandler(ErrprinterHandler(status_printer))
 
     if _initialize:
+        print('Initializing vehicle')
         vehicle.initialize(rate=rate, heartbeat_timeout=heartbeat_timeout)
 
     if wait_ready:
+        print('Waiting for vehicle to be ready...')
         if wait_ready is True:
             vehicle.wait_ready(still_waiting_interval=still_waiting_interval,
                                still_waiting_callback=still_waiting_callback,
@@ -3218,4 +3245,5 @@ def connect(ip,
         else:
             vehicle.wait_ready(*wait_ready)
 
+    print('DroneKit ready.')
     return vehicle
