@@ -35,6 +35,8 @@ A number of other useful classes and methods are listed below.
 import sys
 import collections
 
+MAXDOTS = 6
+
 # Python3.10 removed MutableMapping from collections:
 if sys.version_info.major == 3 and sys.version_info.minor >= 10:
     from collections.abc import MutableMapping
@@ -2318,7 +2320,7 @@ class Vehicle(HasObservers):
         while self._handler._alive:
             time.sleep(.1)
             retries = retries + 1
-            print(f"Awaiting heartbeat...{retries * '.'}", end=LOG_ENDLINE)
+            print("Awaiting heartbeat{dot:{maxdots}} ({retries})".format(dot=((retries % MAXDOTS) * '.'), retries=retries, maxdots=MAXDOTS), end=LOG_ENDLINE)
             if self._heartbeat_lastreceived != start:
                 break
         if not self._handler._alive:
@@ -2332,7 +2334,7 @@ class Vehicle(HasObservers):
         print()
         while True:
             retries = retries + 1
-            print(f"Waiting for board flight mode initialization...{retries * '.'}", end=LOG_ENDLINE)
+            print("Waiting for board flight mode initialization{dot:3} ({retries})".format(dot=((retries % MAXDOTS) * '.'), retries=retries, maxdots=MAXDOTS), end=LOG_ENDLINE)
             if self._flightmode not in [None, 'INITIALISING', 'MAV']:
                 break
             time.sleep(0.1)
@@ -2349,7 +2351,7 @@ class Vehicle(HasObservers):
         print()
         while True:
             retries = retries + 1
-            print(f"Waiting for parameter download...{int(retries / 20) * '.'}", end=LOG_ENDLINE)
+            print("Waiting for parameter download{dot:3} ({retries})".format(dot=((retries % MAXDOTS) * '.'), retries=retries, maxdots=MAXDOTS), end=LOG_ENDLINE)
             # This fn actually rate limits itself to every 2s.
             # Just retry with persistence to get our first param stream.
             self._master.param_fetch_all()
