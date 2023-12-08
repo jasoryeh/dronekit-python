@@ -5,12 +5,17 @@ import sys
 
 
 def errprinter(*args):
-    logger(*args)
-
-
-def logger(*args):
     print(*args, file=sys.stderr)
     sys.stderr.flush()
+
+
+def print_newline():
+    print()
+
+
+def logger(*args, **kwargs):
+    print('[DRONEKIT] ', end='')
+    print(*args, **kwargs)
 
 
 class ErrprinterHandler(logging.Handler):
